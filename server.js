@@ -18,6 +18,13 @@ if (!fs.existsSync('uploads')) {
 // Make the uploads folder publicly readable so previews and downloads work
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// === THE NEW ROUTE IS RIGHT HERE ===
+// This tells the server to load js.html when someone visits your main link
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'js.html'));
+});
+// ===================================
+
 // Temporary memory to store the list of uploaded files
 let vaultFiles = [];
 
@@ -72,7 +79,8 @@ app.post('/upload', upload.fields([{ name: 'bookFile', maxCount: 1 }, { name: 'p
 app.get('/files', (req, res) => res.json(vaultFiles));
 
 // Start the engine
-const PORT = 3000;
+// (Updated for Render compatibility)
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`\n======================================`);
     console.log(`✅ BACKEND ENGINE IS AWAKE!`);
