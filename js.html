@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global File Vault & Distribution Engine</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --light: #ecf0f1;
+            --dark: #1a252f;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+        .container.wide { max-width: 850px; }
+        h2 { color: var(--primary); margin-top: 0; font-size: 24px; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--dark); }
+        .input-group input, .input-group textarea {
+            width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 15px;
+        }
+        .checkbox-group { display: flex; align-items: center; margin-bottom: 15px; gap: 8px; user-select: none; }
+        .checkbox-group input { width: 16px; height: 16px; cursor: pointer; }
+        .btn {
+            width: 100%; padding: 12px; background: var(--primary); color: white;
+            border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-accent { background: var(--accent); }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-danger { background: var(--danger); }
+        .switch-text { margin-top: 15px; font-size: 14px; color: #555; text-align: center; }
+        .switch-text span { color: var(--accent); cursor: pointer; font-weight: bold; text-decoration: underline; }
+        .hidden { display: none !important; }
+        
+        /* Dashboard & Catalog Layouts */
+        .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--light); padding-bottom: 12px; margin-bottom: 20px; }
+        .upload-section { background: #fff8e7; padding: 20px; border: 2px dashed var(--warning); border-radius: 8px; margin-bottom: 25px; }
+        
+        /* Highlight the optional screenshot input */
+        .optional-input { border-left: 4px solid var(--warning); padding-left: 10px; background: #fff; border-radius: 4px; padding: 10px; margin-top: 10px;}
+        
+        .book-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media(max-width: 650px) { .book-grid { grid-template-columns: 1fr; } }
+        .book-card { background: var(--light); padding: 18px; border-radius: 8px; border-left: 5px solid var(--primary); text-align: left; transition: transform 0.2s; }
+        .book-card h3 { margin: 0 0 6px 0; color: var(--primary); font-size: 18px; }
+        .book-actions { display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
+        .btn-sm { padding: 8px 14px; font-size: 13px; width: auto; flex: 1; text-align: center; text-decoration: none; border-radius: 4px; border: none; font-weight: bold; cursor: pointer;}
+        
+        /* Modal Engine Styles */
+        .modal { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); display:flex; justify-content:center; align-items:center; z-index:100; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; max-width: 900px; width: 95%; height: 85vh; position: relative; display: flex; flex-direction: column;}
+        .close-modal { position: absolute; top: 10px; right: 15px; font-size: 28px; cursor: pointer; z-index: 101; color: #333; }
+        .preview-box-file { flex: 1; width: 100%; border: 1px solid #ddd; margin-top: 15px; background: #fafafa; border-radius: 4px; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center;}
+        
+        /* Styles for converted Excel/Word docs and images */
+        .preview-box-file img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .document-render { padding: 25px; height: 100%; width: 100%; overflow-y: auto; background: white; box-sizing: border-box; color: #333; line-height: 1.6; }
+        .document-render table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        .document-render td, .document-render th { border: 1px solid #ddd; padding: 8px; }
+        
+        object, iframe { width: 100%; height: 100%; border: none; }
+        .fallback-text { padding: 50px; color: #555; text-align: center; font-size: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+    </style>
+</head>
+<body>
+
+    <div id="loginScreen" class="container">
+        <h2>Secure File Hub Login</h2>
+        <div class="input-group">
+            <label>Username</label>
+            <input type="text" id="loginUsername" placeholder="Enter username">
+        </div>
+        <div class="input-group">
+            <label>Password</label>
+            <input type="password" id="loginPassword" placeholder="Enter password">
+        </div>
+        <div class="checkbox-group">
+            <input type="checkbox" id="rememberMe">
+            <label for="rememberMe">Remember Me on this device</label>
+        </div>
+        <button class="btn" id="handleLogin">Log In</button>
+        <p class="switch-text">New user? <span id="toSignup">Create an account</span></p>
+    </div>
+
+    <div id="signupScreen" class="container hidden">
+        <h2>Create Public Account</h2>
+        <div class="input-group">
+            <label>Choose Username</label>
+            <input type="text" id="regUsername" placeholder="Minimum 3 characters">
+        </div>
+        <div class="input-group">
+            <label>Create Password</label>
+            <input type="password" id="regPassword" placeholder="Minimum 4 characters">
+        </div>
+        <button class="btn btn-accent" id="handleSignup">Sign Up & Register</button>
+        <p class="switch-text">Already registered? <span id="toLogin">Log In here</span></p>
+    </div>
+
+    <div id="platformScreen" class="container wide hidden">
+        <div class="header-bar">
+            <div>
+                <h2>Global File Vault Grid</h2>
+                <small>User ID: <strong id="displayUser">Guest</strong> Profile Type: (<span id="userRole">Reader</span>)</small>
+            </div>
+            <button class="btn btn-danger btn-sm" id="handleLogout" style="width:90px; flex: none;">Log Out</button>
+        </div>
+
+        <div id="adminUploadSection" class="upload-section hidden">
+            <h3 id="uploadFormLabel" style="margin-top:0; color: var(--warning);">⚙️ Creator Studio Dashboard</h3>
+            <div class="input-group">
+                <label>File Display Name</label>
+                <input type="text" id="bookTitle" placeholder="Provide a clean asset name">
+            </div>
+            <div class="input-group">
+                <label>Description / Distribution Notes</label>
+                <textarea id="bookDesc" rows="2" placeholder="Explain file context or version numbers..."></textarea>
+            </div>
+            
+            <div class="input-group">
+                <label>1. Main File Explorer Upload (Excel, Word, Zip, Image, etc.)</label>
+                <input type="file" id="bookFile">
+            </div>
+
+            <div class="input-group optional-input">
+                <label>2. Preview Screenshot <span style="color:#e74c3c;">(Optional)</span></label>
+                <input type="file" id="previewFile" accept="image/*">
+                <small style="color:#777;">If uploading an unreadable file like Zip, upload a screenshot here to act as the preview.</small>
+            </div>
+
+            <button class="btn btn-accent" id="handlePublish">Publish File to Server</button>
+        </div>
+
+        <h3>📁 Accessible System Assets</h3>
+        <div id="bookCatalog" class="book-grid"></div>
+    </div>
+
+    <div id="previewModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" id="closeModal">&times;</span>
+            <h3 id="modalTitle">Document View Environment</h3>
+            <div id="modalBody" class="preview-box-file"></div>
+        </div>
+    </div>
+
+<script>
+    const ADMIN_USER = "AdminUser";
+    const ADMIN_PASS = "Password123";
+    
+    // Make sure your Node.js server is running on this port!
+    const BACKEND_URL = "http://localhost:3000"; 
+
+    let users = JSON.parse(localStorage.getItem('vault_users')) || [];
+    let filesList = []; 
+    let currentUser = null;
+    
+    const viewNodes = {
+        login: document.getElementById('loginScreen'),
+        signup: document.getElementById('signupScreen'),
+        platform: document.getElementById('platformScreen')
+    };
+
+    window.onload = function() {
+        const activeSession = localStorage.getItem('vault_saved_session');
+        if (activeSession) {
+            currentUser = JSON.parse(activeSession);
+            launchApplicationLayout();
+        } else {
+            showView('login');
+        }
+    };
+
+    document.getElementById('toSignup').addEventListener('click', () => showView('signup'));
+    document.getElementById('toLogin').addEventListener('click', () => showView('login'));
+
+    function showView(targetKey) {
+        Object.keys(viewNodes).forEach(key => viewNodes[key].classList.add('hidden'));
+        viewNodes[targetKey].classList.remove('hidden');
+    }
+
+    document.getElementById('handleSignup').addEventListener('click', () => {
+        const userIn = document.getElementById('regUsername').value.trim();
+        const passIn = document.getElementById('regPassword').value.trim();
+
+        if (userIn.length < 3 || passIn.length < 4) return alert("Username >= 3 chars, Password >= 4 chars.");
+        
+        users.push({ username: userIn, password: passIn, role: 'Reader' });
+        localStorage.setItem('vault_users', JSON.stringify(users));
+        alert("Account Created! You can now log in.");
+        showView('login');
+    });
+
+    document.getElementById('handleLogin').addEventListener('click', () => {
+        const userIn = document.getElementById('loginUsername').value.trim();
+        const passIn = document.getElementById('loginPassword').value.trim();
+        
+        if (userIn === ADMIN_USER && passIn === ADMIN_PASS) {
+            currentUser = { username: ADMIN_USER, role: 'Admin' };
+        } else {
+            const matchUser = users.find(u => u.username === userIn && u.password === passIn);
+            if (!matchUser) return alert("Access Denied. Wrong username or password.");
+            currentUser = matchUser;
+        }
+
+        if (document.getElementById('rememberMe').checked) {
+            localStorage.setItem('vault_saved_session', JSON.stringify(currentUser));
+        }
+        launchApplicationLayout();
+    });
+
+    document.getElementById('handleLogout').addEventListener('click', () => {
+        currentUser = null;
+        localStorage.removeItem('vault_saved_session');
+        showView('login');
+    });
+
+    function launchApplicationLayout() {
+        showView('platform');
+        document.getElementById('displayUser').textContent = currentUser.username;
+        document.getElementById('userRole').textContent = currentUser.role;
+
+        if (currentUser.role === 'Admin') {
+            document.getElementById('adminUploadSection').classList.remove('hidden');
+        } else {
+            document.getElementById('adminUploadSection').classList.add('hidden');
+        }
+        
+        fetchServerData();
+    }
+
+    function fetchServerData() {
+        fetch(`${BACKEND_URL}/files`)
+            .then(response => response.json())
+            .then(data => {
+                filesList = data;
+                buildCatalogLayout();
+            })
+            .catch(err => {
+                console.error("Could not connect to server:", err);
+                document.getElementById('bookCatalog').innerHTML = '<p style="color: red; grid-column: 1/-1;">Error: Cannot connect to server. Is Node.js running?</p>';
+            });
+    }
+
+    document.getElementById('handlePublish').addEventListener('click', async () => {
+        const titleText = document.getElementById('bookTitle').value.trim();
+        const descText = document.getElementById('bookDesc').value.trim();
+        const mainFile = document.getElementById('bookFile').files[0];
+        const previewFile = document.getElementById('previewFile').files[0];
+
+        if (!titleText || !mainFile) return alert("Title and Main File are required!");
+
+        const formData = new FormData();
+        formData.append('title', titleText);
+        formData.append('desc', descText);
+        formData.append('bookFile', mainFile); 
+        
+        if (previewFile) {
+            formData.append('previewFile', previewFile);
+        }
+
+        try {
+            document.getElementById('handlePublish').textContent = "Uploading...";
+            
+            const response = await fetch(`${BACKEND_URL}/upload`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                alert("File uploaded securely to server!");
+                document.getElementById('bookTitle').value = '';
+                document.getElementById('bookDesc').value = '';
+                document.getElementById('bookFile').value = '';
+                document.getElementById('previewFile').value = '';
+                fetchServerData(); 
+            }
+        } catch (error) {
+            alert("Upload failed. Make sure your Node.js backend server is running on port 3000.");
+        } finally {
+            document.getElementById('handlePublish').textContent = "Publish File to Server";
+        }
+    });
+
+    function buildCatalogLayout() {
+        const targetContainer = document.getElementById('bookCatalog');
+        targetContainer.innerHTML = '';
+
+        if (filesList.length === 0) {
+            targetContainer.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">No files found on server.</p>';
+            return;
+        }
+
+        filesList.forEach(fileRecord => {
+            const layoutCard = document.createElement('div');
+            layoutCard.className = 'book-card';
+            
+            const absoluteFileUrl = `${BACKEND_URL}${fileRecord.fileUrl}`;
+
+            let structuralActions = `
+                <button class="btn btn-sm" onclick="openSystemModal(${fileRecord.id})">👁️ Preview</button>
+                <a class="btn btn-sm btn-accent" href="${absoluteFileUrl}" download="${fileRecord.fileName}" target="_blank">📥 Download Original</a>
+            `;
+
+            layoutCard.innerHTML = `
+                <h3>${fileRecord.title}</h3>
+                <p style="font-size:14px; color:#555; margin:0; line-height:1.4;">${fileRecord.desc || 'No metadata.'}</p>
+                <div class="book-actions">${structuralActions}</div>
+            `;
+            targetContainer.appendChild(layoutCard);
+        });
+    }
+
+    window.openSystemModal = async function(id) {
+        const assetObj = filesList.find(f => f.id === id);
+        if (!assetObj) return;
+
+        document.getElementById('modalTitle').textContent = assetObj.title;
+        const modalBody = document.getElementById('modalBody');
+        
+        document.getElementById('previewModal').classList.remove('hidden');
+        modalBody.innerHTML = '<div class="fallback-text"><h2>Loading Preview...</h2><p>Please wait while the document is processed.</p></div>';
+
+        const fileExt = assetObj.fileName.split('.').pop().toLowerCase();
+        const absoluteFileUrl = `${BACKEND_URL}${assetObj.fileUrl}`;
+
+        try {
+            // SCENARIO 1: A custom screenshot was uploaded. Show that.
+            if (assetObj.previewImage) {
+                modalBody.innerHTML = `<img src="${BACKEND_URL}${assetObj.previewImage}" alt="Preview Screenshot">`;
+            } 
+            // SCENARIO 2: Native Browser Formats (PDF & Main Image Files)
+            else if (assetObj.fileType.includes('pdf') || assetObj.fileType.includes('image')) {
+                modalBody.innerHTML = `<object data="${absoluteFileUrl}" type="${assetObj.fileType}"></object>`;
+            } 
+            // SCENARIO 3: Modern Word Documents
+            else if (fileExt === 'docx') {
+                const response = await fetch(absoluteFileUrl);
+                const arrayBuffer = await response.arrayBuffer();
+                const result = await mammoth.convertToHtml({arrayBuffer: arrayBuffer});
+                modalBody.innerHTML = `<div class="document-render">${result.value}</div>`;
+            } 
+            // SCENARIO 4: Excel Spreadsheets
+            else if (fileExt === 'xlsx' || fileExt === 'xls' || fileExt === 'csv') {
+                const response = await fetch(absoluteFileUrl);
+                const arrayBuffer = await response.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, {type: "array"});
+                const firstSheetName = workbook.SheetNames[0];
+                const htmlString = XLSX.utils.sheet_to_html(workbook.Sheets[firstSheetName]);
+                modalBody.innerHTML = `<div class="document-render">${htmlString}</div>`;
+            } 
+            // SCENARIO 5: Unreadable file with no screenshot provided
+            else {
+                modalBody.innerHTML = `
+                    <div class="fallback-text">
+                        <p>No preview screenshot was uploaded for this file type (${fileExt}).</p>
+                        <a class="btn btn-accent" style="width: 200px; margin-top: 15px; text-decoration: none;" href="${absoluteFileUrl}" download>Download Original Instead</a>
+                    </div>`;
+            }
+        } catch (error) {
+            console.error("Preview render error:", error);
+            modalBody.innerHTML = `
+                <div class="fallback-text">
+                    <p style="color: red;">Error rendering document preview.</p>
+                    <a class="btn btn-accent" style="width: 200px; margin-top: 15px; text-decoration: none;" href="${absoluteFileUrl}" download>Download Instead</a>
+                </div>`;
+        }
+    };
+
+    document.getElementById('closeModal').addEventListener('click', () => {
+        document.getElementById('previewModal').classList.add('hidden');
+        document.getElementById('modalBody').innerHTML = '';
+    });
+</script>
+</body>
+</html>
