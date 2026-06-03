@@ -142,7 +142,7 @@
             </div>
             
             <div class="input-group">
-                <label>1. Main File Explorer Upload (Excel, Word, Zip, Image, etc.)</label>
+                <label>1. Main File Explorer Upload (Excel, Word, Zip, Image, pbix, csv, etc.)</label>
                 <input type="file" id="bookFile">
             </div>
 
@@ -307,7 +307,7 @@
         }
     });
 
-    // === NEW ADMIN FUNCTIONS ===
+    // === ADMIN FUNCTIONS ===
     async function deleteFile(id) {
         if (confirm("Are you sure you want to delete this file from the server?")) {
             try {
@@ -318,7 +318,7 @@
                 
                 if (data.success) {
                     alert("File deleted successfully!");
-                    fetchServerData(); // Reload the list without refreshing the page
+                    fetchServerData(); 
                 }
             } catch (error) {
                 console.error("Error deleting file:", error);
@@ -332,7 +332,6 @@
         const newTitle = prompt("Enter new title:", currentFile.title);
         const newDesc = prompt("Enter new description:", currentFile.desc);
 
-        // Only proceed if they actually typed something and didn't cancel
         if (newTitle !== null || newDesc !== null) {
             try {
                 const response = await fetch(`${BACKEND_URL}/edit/${id}`, {
@@ -347,7 +346,7 @@
                 
                 if (data.success) {
                     alert("File updated successfully!");
-                    fetchServerData(); // Reload the list without refreshing the page
+                    fetchServerData(); 
                 }
             } catch (error) {
                 console.error("Error editing file:", error);
@@ -425,7 +424,7 @@
                 const result = await mammoth.convertToHtml({arrayBuffer: arrayBuffer});
                 modalBody.innerHTML = `<div class="document-render">${result.value}</div>`;
             } 
-            // SCENARIO 4: Excel Spreadsheets
+            // SCENARIO 4: Excel Spreadsheets (and CSV)
             else if (fileExt === 'xlsx' || fileExt === 'xls' || fileExt === 'csv') {
                 const response = await fetch(absoluteFileUrl);
                 const arrayBuffer = await response.arrayBuffer();
@@ -434,6 +433,15 @@
                 const htmlString = XLSX.utils.sheet_to_html(workbook.Sheets[firstSheetName]);
                 modalBody.innerHTML = `<div class="document-render">${htmlString}</div>`;
             } 
+            // SCENARIO 4.5: Power BI Dashboards (.pbix)
+            else if (fileExt === 'pbix') {
+                modalBody.innerHTML = `
+                    <div class="fallback-text">
+                        <h2 style="color: #f2c811;">📊 Power BI Dashboard</h2>
+                        <p>This is a Power BI data model. To view or edit the dashboard, please download the file and open it locally in Power BI Desktop.</p>
+                        <a class="btn btn-accent" style="width: 250px; margin-top: 15px; text-decoration: none;" href="${absoluteFileUrl}" download="${assetObj.fileName}">Download .pbix File</a>
+                    </div>`;
+            }
             // SCENARIO 5: Unreadable file with no screenshot provided
             else {
                 modalBody.innerHTML = `
