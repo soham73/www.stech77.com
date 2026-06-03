@@ -171,8 +171,8 @@
     const ADMIN_USER = "AdminUser";
     const ADMIN_PASS = "Password123";
     
-    // Make sure your Node.js server is running on this port!
-    const BACKEND_URL = "http://localhost:3000"; 
+    // BACKEND_URL left empty so it uses relative paths for Render deployment!
+    const BACKEND_URL = ""; 
 
     let users = JSON.parse(localStorage.getItem('vault_users')) || [];
     let filesList = []; 
@@ -301,11 +301,61 @@
                 fetchServerData(); 
             }
         } catch (error) {
-            alert("Upload failed. Make sure your Node.js backend server is running on port 3000.");
+            alert("Upload failed. Check your network or server logs.");
         } finally {
             document.getElementById('handlePublish').textContent = "Publish File to Server";
         }
     });
+
+    // === NEW ADMIN FUNCTIONS ===
+    async function deleteFile(id) {
+        if (confirm("Are you sure you want to delete this file from the server?")) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/delete/${id}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert("File deleted successfully!");
+                    fetchServerData(); // Reload the list without refreshing the page
+                }
+            } catch (error) {
+                console.error("Error deleting file:", error);
+                alert("Failed to delete file.");
+            }
+        }
+    }
+
+    async function editFile(id) {
+        const currentFile = filesList.find(f => f.id === id);
+        const newTitle = prompt("Enter new title:", currentFile.title);
+        const newDesc = prompt("Enter new description:", currentFile.desc);
+
+        // Only proceed if they actually typed something and didn't cancel
+        if (newTitle !== null || newDesc !== null) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/edit/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: newTitle || currentFile.title,
+                        desc: newDesc || currentFile.desc
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert("File updated successfully!");
+                    fetchServerData(); // Reload the list without refreshing the page
+                }
+            } catch (error) {
+                console.error("Error editing file:", error);
+                alert("Failed to edit file.");
+            }
+        }
+    }
+    // ============================
 
     function buildCatalogLayout() {
         const targetContainer = document.getElementById('bookCatalog');
@@ -322,9 +372,19 @@
             
             const absoluteFileUrl = `${BACKEND_URL}${fileRecord.fileUrl}`;
 
+            // Check if user is Admin to show Edit/Delete buttons
+            let adminButtons = '';
+            if (currentUser && currentUser.role === 'Admin') {
+                adminButtons = `
+                    <button class="btn btn-sm btn-warning" onclick="editFile(${fileRecord.id})">✏️ Edit</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteFile(${fileRecord.id})">🗑️ Delete</button>
+                `;
+            }
+
             let structuralActions = `
                 <button class="btn btn-sm" onclick="openSystemModal(${fileRecord.id})">👁️ Preview</button>
-                <a class="btn btn-sm btn-accent" href="${absoluteFileUrl}" download="${fileRecord.fileName}" target="_blank">📥 Download Original</a>
+                <a class="btn btn-sm btn-accent" href="${absoluteFileUrl}" download="${fileRecord.fileName}" target="_blank">📥 Download</a>
+                ${adminButtons}
             `;
 
             layoutCard.innerHTML = `
