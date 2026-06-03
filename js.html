@@ -35,8 +35,9 @@
             width: 100%;
             max-width: 500px;
             box-sizing: border-box;
+            margin: 20px 0;
         }
-        .container.wide { max-width: 850px; }
+        .container.wide { max-width: 900px; }
         h2 { color: var(--primary); margin-top: 0; font-size: 24px; }
         .input-group { margin-bottom: 15px; text-align: left; }
         .input-group label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--dark); }
@@ -57,14 +58,17 @@
         .switch-text span { color: var(--accent); cursor: pointer; font-weight: bold; text-decoration: underline; }
         .hidden { display: none !important; }
         
-        /* Dashboard & Catalog Layouts */
         .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--light); padding-bottom: 12px; margin-bottom: 20px; }
         .upload-section { background: #fff8e7; padding: 20px; border: 2px dashed var(--warning); border-radius: 8px; margin-bottom: 25px; }
         
-        /* Highlight the optional screenshot input */
-        .optional-input { border-left: 4px solid var(--warning); padding-left: 10px; background: #fff; border-radius: 4px; padding: 10px; margin-top: 10px;}
+        /* New File Explorer Grid Styles */
+        .explorer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; margin-top: 20px;}
+        .folder-icon { background: var(--light); border: 2px solid transparent; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .folder-icon:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .folder-icon span { font-size: 50px; display: block; margin-bottom: 10px; }
+        .folder-icon h4 { margin: 0; color: var(--dark); font-size: 15px; word-break: break-word;}
         
-        .book-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .book-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
         @media(max-width: 650px) { .book-grid { grid-template-columns: 1fr; } }
         .book-card { background: var(--light); padding: 18px; border-radius: 8px; border-left: 5px solid var(--primary); text-align: left; transition: transform 0.2s; }
         .book-card h3 { margin: 0 0 6px 0; color: var(--primary); font-size: 18px; }
@@ -76,13 +80,10 @@
         .modal-content { background: white; padding: 20px; border-radius: 8px; max-width: 900px; width: 95%; height: 85vh; position: relative; display: flex; flex-direction: column;}
         .close-modal { position: absolute; top: 10px; right: 15px; font-size: 28px; cursor: pointer; z-index: 101; color: #333; }
         .preview-box-file { flex: 1; width: 100%; border: 1px solid #ddd; margin-top: 15px; background: #fafafa; border-radius: 4px; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center;}
-        
-        /* Styles for converted Excel/Word docs and images */
         .preview-box-file img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .document-render { padding: 25px; height: 100%; width: 100%; overflow-y: auto; background: white; box-sizing: border-box; color: #333; line-height: 1.6; }
         .document-render table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
         .document-render td, .document-render th { border: 1px solid #ddd; padding: 8px; }
-        
         object, iframe { width: 100%; height: 100%; border: none; }
         .fallback-text { padding: 50px; color: #555; text-align: center; font-size: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
     </style>
@@ -124,39 +125,57 @@
     <div id="platformScreen" class="container wide hidden">
         <div class="header-bar">
             <div>
-                <h2>Global File Vault Grid</h2>
+                <h2>Global File Vault</h2>
                 <small>User ID: <strong id="displayUser">Guest</strong> Profile Type: (<span id="userRole">Reader</span>)</small>
             </div>
             <button class="btn btn-danger btn-sm" id="handleLogout" style="width:90px; flex: none;">Log Out</button>
         </div>
 
-        <div id="adminUploadSection" class="upload-section hidden">
-            <h3 id="uploadFormLabel" style="margin-top:0; color: var(--warning);">⚙️ Creator Studio Dashboard</h3>
-            <div class="input-group">
-                <label>File Display Name</label>
-                <input type="text" id="bookTitle" placeholder="Provide a clean asset name">
-            </div>
-            <div class="input-group">
-                <label>Description / Distribution Notes</label>
-                <textarea id="bookDesc" rows="2" placeholder="Explain file context or version numbers..."></textarea>
+        <div id="folderExplorerView">
+            <div id="adminCreateFolderSection" class="upload-section hidden" style="padding: 15px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 8px;">📁 Create New Folder</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="newFolderName" placeholder="Enter folder name..." style="flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #ccc;">
+                    <button class="btn btn-warning" id="handleCreateFolder" style="width: 150px;">Create Folder</button>
+                </div>
             </div>
             
-            <div class="input-group">
-                <label>1. Main File Explorer Upload (Excel, Word, Zip, Image, pbix, csv, etc.)</label>
-                <input type="file" id="bookFile">
-            </div>
-
-            <div class="input-group optional-input">
-                <label>2. Preview Screenshot <span style="color:#e74c3c;">(Optional)</span></label>
-                <input type="file" id="previewFile" accept="image/*">
-                <small style="color:#777;">If uploading an unreadable file like Zip, upload a screenshot here to act as the preview.</small>
-            </div>
-
-            <button class="btn btn-accent" id="handlePublish">Publish File to Server</button>
+            <h3 style="margin-bottom: 0;">System Folders</h3>
+            <div id="folderGrid" class="explorer-grid"></div>
         </div>
 
-        <h3>📁 Accessible System Assets</h3>
-        <div id="bookCatalog" class="book-grid"></div>
+        <div id="fileListView" class="hidden">
+            <button class="btn" style="background: #95a5a6; width: auto; padding: 8px 15px; margin-bottom: 20px;" onclick="goBackToFolders()">⬅️ Back to Folders</button>
+            
+            <h2 id="currentFolderTitle" style="color: var(--primary);">📁 Folder Name</h2>
+
+            <div id="adminUploadSection" class="upload-section hidden">
+                <h3 style="margin-top:0; color: var(--warning);">Upload File to this Folder</h3>
+
+                <div class="input-group">
+                    <label>File Display Name</label>
+                    <input type="text" id="bookTitle" placeholder="Provide a clean asset name">
+                </div>
+                <div class="input-group">
+                    <label>Description / Notes</label>
+                    <textarea id="bookDesc" rows="2" placeholder="Explain file context..."></textarea>
+                </div>
+                
+                <div class="input-group">
+                    <label>1. Main File Explorer Upload (Excel, Word, pbix, etc.)</label>
+                    <input type="file" id="bookFile">
+                </div>
+
+                <div class="input-group" style="border-left: 4px solid var(--warning); padding-left: 10px; background: #fff; border-radius: 4px; padding: 10px; margin-top: 10px;">
+                    <label>2. Preview Screenshot <span style="color:#e74c3c;">(Optional)</span></label>
+                    <input type="file" id="previewFile" accept="image/*">
+                </div>
+
+                <button class="btn btn-accent" id="handlePublish">Publish File</button>
+            </div>
+
+            <div id="bookCatalog" class="book-grid"></div>
+        </div>
     </div>
 
     <div id="previewModal" class="modal hidden">
@@ -170,13 +189,13 @@
 <script>
     const ADMIN_USER = "AdminUser";
     const ADMIN_PASS = "Password123";
-    
-    // BACKEND_URL left empty so it uses relative paths for Render deployment!
     const BACKEND_URL = ""; 
 
     let users = JSON.parse(localStorage.getItem('vault_users')) || [];
     let filesList = []; 
+    let vaultFolders = [];
     let currentUser = null;
+    let activeFolder = null; // Tracks which folder we are currently inside
     
     const viewNodes = {
         login: document.getElementById('loginScreen'),
@@ -205,9 +224,7 @@
     document.getElementById('handleSignup').addEventListener('click', () => {
         const userIn = document.getElementById('regUsername').value.trim();
         const passIn = document.getElementById('regPassword').value.trim();
-
         if (userIn.length < 3 || passIn.length < 4) return alert("Username >= 3 chars, Password >= 4 chars.");
-        
         users.push({ username: userIn, password: passIn, role: 'Reader' });
         localStorage.setItem('vault_users', JSON.stringify(users));
         alert("Account Created! You can now log in.");
@@ -217,15 +234,13 @@
     document.getElementById('handleLogin').addEventListener('click', () => {
         const userIn = document.getElementById('loginUsername').value.trim();
         const passIn = document.getElementById('loginPassword').value.trim();
-        
         if (userIn === ADMIN_USER && passIn === ADMIN_PASS) {
             currentUser = { username: ADMIN_USER, role: 'Admin' };
         } else {
             const matchUser = users.find(u => u.username === userIn && u.password === passIn);
-            if (!matchUser) return alert("Access Denied. Wrong username or password.");
+            if (!matchUser) return alert("Access Denied.");
             currentUser = matchUser;
         }
-
         if (document.getElementById('rememberMe').checked) {
             localStorage.setItem('vault_saved_session', JSON.stringify(currentUser));
         }
@@ -235,6 +250,7 @@
     document.getElementById('handleLogout').addEventListener('click', () => {
         currentUser = null;
         localStorage.removeItem('vault_saved_session');
+        activeFolder = null;
         showView('login');
     });
 
@@ -243,27 +259,93 @@
         document.getElementById('displayUser').textContent = currentUser.username;
         document.getElementById('userRole').textContent = currentUser.role;
 
+        // Show Admin Controls if Admin
         if (currentUser.role === 'Admin') {
+            document.getElementById('adminCreateFolderSection').classList.remove('hidden');
             document.getElementById('adminUploadSection').classList.remove('hidden');
         } else {
+            document.getElementById('adminCreateFolderSection').classList.add('hidden');
             document.getElementById('adminUploadSection').classList.add('hidden');
         }
         
+        goBackToFolders(); // Reset to main grid on load
         fetchServerData();
     }
 
-    function fetchServerData() {
-        fetch(`${BACKEND_URL}/files`)
-            .then(response => response.json())
-            .then(data => {
-                filesList = data;
-                buildCatalogLayout();
-            })
-            .catch(err => {
-                console.error("Could not connect to server:", err);
-                document.getElementById('bookCatalog').innerHTML = '<p style="color: red; grid-column: 1/-1;">Error: Cannot connect to server. Is Node.js running?</p>';
-            });
+    async function fetchServerData() {
+        try {
+            const folderRes = await fetch(`${BACKEND_URL}/folders`);
+            vaultFolders = await folderRes.json();
+
+            const fileRes = await fetch(`${BACKEND_URL}/files`);
+            filesList = await fileRes.json();
+
+            if (activeFolder === null) {
+                renderFolderGrid();
+            } else {
+                renderFilesInsideFolder();
+            }
+        } catch (err) {
+            document.getElementById('folderGrid').innerHTML = '<p style="color: red;">Error connecting to server.</p>';
+        }
     }
+
+    // --- NEW FILE EXPLORER NAVIGATION ---
+
+    function renderFolderGrid() {
+        const grid = document.getElementById('folderGrid');
+        grid.innerHTML = '';
+
+        vaultFolders.forEach(folderName => {
+            const folderEl = document.createElement('div');
+            folderEl.className = 'folder-icon';
+            folderEl.onclick = () => openFolder(folderName);
+            folderEl.innerHTML = `
+                <span>📁</span>
+                <h4>${folderName}</h4>
+            `;
+            grid.appendChild(folderEl);
+        });
+    }
+
+    window.openFolder = function(folderName) {
+        activeFolder = folderName;
+        document.getElementById('folderExplorerView').classList.add('hidden');
+        document.getElementById('fileListView').classList.remove('hidden');
+        document.getElementById('currentFolderTitle').innerHTML = `📁 ${folderName}`;
+        renderFilesInsideFolder();
+    };
+
+    window.goBackToFolders = function() {
+        activeFolder = null;
+        document.getElementById('fileListView').classList.add('hidden');
+        document.getElementById('folderExplorerView').classList.remove('hidden');
+        renderFolderGrid();
+    };
+
+    // ------------------------------------
+
+    document.getElementById('handleCreateFolder').addEventListener('click', async () => {
+        const newFolder = document.getElementById('newFolderName').value.trim();
+        if(!newFolder) return alert("Enter a folder name.");
+        
+        try {
+            const response = await fetch(`${BACKEND_URL}/folders`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folderName: newFolder })
+            });
+            const data = await response.json();
+            if(data.success) {
+                document.getElementById('newFolderName').value = '';
+                fetchServerData();
+            } else {
+                alert(data.error);
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    });
 
     document.getElementById('handlePublish').addEventListener('click', async () => {
         const titleText = document.getElementById('bookTitle').value.trim();
@@ -276,24 +358,16 @@
         const formData = new FormData();
         formData.append('title', titleText);
         formData.append('desc', descText);
+        formData.append('folder', activeFolder); // Automatically tags it to the folder you are inside!
         formData.append('bookFile', mainFile); 
-        
-        if (previewFile) {
-            formData.append('previewFile', previewFile);
-        }
+        if (previewFile) formData.append('previewFile', previewFile);
 
         try {
             document.getElementById('handlePublish').textContent = "Uploading...";
-            
-            const response = await fetch(`${BACKEND_URL}/upload`, {
-                method: 'POST',
-                body: formData
-            });
-
+            const response = await fetch(`${BACKEND_URL}/upload`, { method: 'POST', body: formData });
             const result = await response.json();
             
             if (result.success) {
-                alert("File uploaded securely to server!");
                 document.getElementById('bookTitle').value = '';
                 document.getElementById('bookDesc').value = '';
                 document.getElementById('bookFile').value = '';
@@ -301,29 +375,16 @@
                 fetchServerData(); 
             }
         } catch (error) {
-            alert("Upload failed. Check your network or server logs.");
+            alert("Upload failed.");
         } finally {
-            document.getElementById('handlePublish').textContent = "Publish File to Server";
+            document.getElementById('handlePublish').textContent = "Publish File";
         }
     });
 
-    // === ADMIN FUNCTIONS ===
     async function deleteFile(id) {
-        if (confirm("Are you sure you want to delete this file from the server?")) {
-            try {
-                const response = await fetch(`${BACKEND_URL}/delete/${id}`, {
-                    method: 'DELETE'
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert("File deleted successfully!");
-                    fetchServerData(); 
-                }
-            } catch (error) {
-                console.error("Error deleting file:", error);
-                alert("Failed to delete file.");
-            }
+        if (confirm("Are you sure you want to delete this file?")) {
+            const response = await fetch(`${BACKEND_URL}/delete/${id}`, { method: 'DELETE' });
+            if ((await response.json()).success) fetchServerData(); 
         }
     }
 
@@ -333,45 +394,32 @@
         const newDesc = prompt("Enter new description:", currentFile.desc);
 
         if (newTitle !== null || newDesc !== null) {
-            try {
-                const response = await fetch(`${BACKEND_URL}/edit/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: newTitle || currentFile.title,
-                        desc: newDesc || currentFile.desc
-                    })
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert("File updated successfully!");
-                    fetchServerData(); 
-                }
-            } catch (error) {
-                console.error("Error editing file:", error);
-                alert("Failed to edit file.");
-            }
+            const response = await fetch(`${BACKEND_URL}/edit/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle || currentFile.title, desc: newDesc || currentFile.desc })
+            });
+            if ((await response.json()).success) fetchServerData(); 
         }
     }
-    // ============================
 
-    function buildCatalogLayout() {
+    function renderFilesInsideFolder() {
         const targetContainer = document.getElementById('bookCatalog');
         targetContainer.innerHTML = '';
 
-        if (filesList.length === 0) {
-            targetContainer.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">No files found on server.</p>';
+        // Filter files to only show the ones inside the activeFolder
+        const currentFiles = filesList.filter(f => (f.folder || 'General') === activeFolder);
+
+        if (currentFiles.length === 0) {
+            targetContainer.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color: #777;">This folder is empty.</p>';
             return;
         }
 
-        filesList.forEach(fileRecord => {
+        currentFiles.forEach(fileRecord => {
             const layoutCard = document.createElement('div');
             layoutCard.className = 'book-card';
-            
             const absoluteFileUrl = `${BACKEND_URL}${fileRecord.fileUrl}`;
 
-            // Check if user is Admin to show Edit/Delete buttons
             let adminButtons = '';
             if (currentUser && currentUser.role === 'Admin') {
                 adminButtons = `
@@ -380,89 +428,69 @@
                 `;
             }
 
-            let structuralActions = `
-                <button class="btn btn-sm" onclick="openSystemModal(${fileRecord.id})">👁️ Preview</button>
-                <a class="btn btn-sm btn-accent" href="${absoluteFileUrl}" download="${fileRecord.fileName}" target="_blank">📥 Download</a>
-                ${adminButtons}
-            `;
-
             layoutCard.innerHTML = `
                 <h3>${fileRecord.title}</h3>
                 <p style="font-size:14px; color:#555; margin:0; line-height:1.4;">${fileRecord.desc || 'No metadata.'}</p>
-                <div class="book-actions">${structuralActions}</div>
+                <div class="book-actions">
+                    <button class="btn btn-sm" onclick="openSystemModal(${fileRecord.id})">👁️ Preview</button>
+                    <a class="btn btn-sm btn-accent" href="${absoluteFileUrl}" download="${fileRecord.fileName}" target="_blank">📥 Download</a>
+                    ${adminButtons}
+                </div>
             `;
             targetContainer.appendChild(layoutCard);
         });
     }
 
+    // Modal logic (Unchanged, includes pbix support)
     window.openSystemModal = async function(id) {
         const assetObj = filesList.find(f => f.id === id);
         if (!assetObj) return;
 
         document.getElementById('modalTitle').textContent = assetObj.title;
         const modalBody = document.getElementById('modalBody');
-        
         document.getElementById('previewModal').classList.remove('hidden');
-        modalBody.innerHTML = '<div class="fallback-text"><h2>Loading Preview...</h2><p>Please wait while the document is processed.</p></div>';
+        modalBody.innerHTML = '<div class="fallback-text"><h2>Loading Preview...</h2></div>';
 
         const fileExt = assetObj.fileName.split('.').pop().toLowerCase();
         const absoluteFileUrl = `${BACKEND_URL}${assetObj.fileUrl}`;
 
         try {
-            // SCENARIO 1: A custom screenshot was uploaded. Show that.
             if (assetObj.previewImage) {
-                modalBody.innerHTML = `<img src="${BACKEND_URL}${assetObj.previewImage}" alt="Preview Screenshot">`;
-            } 
-            // SCENARIO 2: Native Browser Formats (PDF & Main Image Files)
-            else if (assetObj.fileType.includes('pdf') || assetObj.fileType.includes('image')) {
+                modalBody.innerHTML = `<img src="${BACKEND_URL}${assetObj.previewImage}" alt="Preview">`;
+            } else if (assetObj.fileType.includes('pdf') || assetObj.fileType.includes('image')) {
                 modalBody.innerHTML = `<object data="${absoluteFileUrl}" type="${assetObj.fileType}"></object>`;
-            } 
-            // SCENARIO 3: Modern Word Documents
-            else if (fileExt === 'docx') {
+            } else if (fileExt === 'docx') {
                 const response = await fetch(absoluteFileUrl);
                 const arrayBuffer = await response.arrayBuffer();
                 const result = await mammoth.convertToHtml({arrayBuffer: arrayBuffer});
                 modalBody.innerHTML = `<div class="document-render">${result.value}</div>`;
-            } 
-            // SCENARIO 4: Excel Spreadsheets (and CSV)
-            else if (fileExt === 'xlsx' || fileExt === 'xls' || fileExt === 'csv') {
+            } else if (fileExt === 'xlsx' || fileExt === 'xls' || fileExt === 'csv') {
                 const response = await fetch(absoluteFileUrl);
                 const arrayBuffer = await response.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, {type: "array"});
-                const firstSheetName = workbook.SheetNames[0];
-                const htmlString = XLSX.utils.sheet_to_html(workbook.Sheets[firstSheetName]);
+                const htmlString = XLSX.utils.sheet_to_html(workbook.Sheets[workbook.SheetNames[0]]);
                 modalBody.innerHTML = `<div class="document-render">${htmlString}</div>`;
-            } 
-            // SCENARIO 4.5: Power BI Dashboards (.pbix)
-            else if (fileExt === 'pbix') {
+            } else if (fileExt === 'pbix') {
                 modalBody.innerHTML = `
                     <div class="fallback-text">
                         <h2 style="color: #f2c811;">📊 Power BI Dashboard</h2>
-                        <p>This is a Power BI data model. To view or edit the dashboard, please download the file and open it locally in Power BI Desktop.</p>
-                        <a class="btn btn-accent" style="width: 250px; margin-top: 15px; text-decoration: none;" href="${absoluteFileUrl}" download="${assetObj.fileName}">Download .pbix File</a>
+                        <p>This is a Power BI data model. Download the file and open it locally in Power BI Desktop.</p>
+                        <a class="btn btn-accent" style="width: 250px; text-decoration: none;" href="${absoluteFileUrl}" download="${assetObj.fileName}">Download .pbix</a>
                     </div>`;
-            }
-            // SCENARIO 5: Unreadable file with no screenshot provided
-            else {
+            } else {
                 modalBody.innerHTML = `
                     <div class="fallback-text">
-                        <p>No preview screenshot was uploaded for this file type (${fileExt}).</p>
-                        <a class="btn btn-accent" style="width: 200px; margin-top: 15px; text-decoration: none;" href="${absoluteFileUrl}" download>Download Original Instead</a>
+                        <p>No preview available.</p>
+                        <a class="btn btn-accent" style="width: 200px; text-decoration: none;" href="${absoluteFileUrl}" download>Download Instead</a>
                     </div>`;
             }
         } catch (error) {
-            console.error("Preview render error:", error);
-            modalBody.innerHTML = `
-                <div class="fallback-text">
-                    <p style="color: red;">Error rendering document preview.</p>
-                    <a class="btn btn-accent" style="width: 200px; margin-top: 15px; text-decoration: none;" href="${absoluteFileUrl}" download>Download Instead</a>
-                </div>`;
+            modalBody.innerHTML = '<div class="fallback-text"><p style="color: red;">Error rendering document preview.</p></div>';
         }
     };
 
     document.getElementById('closeModal').addEventListener('click', () => {
         document.getElementById('previewModal').classList.add('hidden');
-        document.getElementById('modalBody').innerHTML = '';
     });
 </script>
 </body>

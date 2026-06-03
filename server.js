@@ -5,34 +5,26 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-
-// This allows your HTML file to connect to this server securely
 app.use(cors()); 
 app.use(express.json());
 
-// Create the 'uploads' folder automatically if it doesn't exist
 if (!fs.existsSync('uploads')) {
     fs.mkdirSync('uploads');
 }
 
-// Make the uploads folder publicly readable so previews and downloads work
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// === THE NEW ROUTE IS RIGHT HERE ===
-// This tells the server to load js.html when someone visits your main link
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'js.html'));
 });
-// ===================================
 
-// Temporary memory to store the list of uploaded files
+// === SYSTEM MEMORY ===
 let vaultFiles = [];
+let vaultFolders = ['General']; // Default starting folder
 
-// Configure how and where files are saved on your computer
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'uploads/'),
     filename: (req, file, cb) => {
-        // Clean up the file name (replaces spaces with underscores)
         const safeName = file.originalname.replace(/\s+/g, '_');
         cb(null, Date.now() + '-' + safeName);
     }
@@ -40,10 +32,21 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// The API endpoint that receives the files from your website
+// --- FOLDER ENDPOINTS ---
+app.get('/folders', (req, res) => res.json(vaultFolders));
+
+app.post('/folders', (req, res) => {
+    const newFolder = req.body.folderName;
+    if (newFolder && !vaultFolders.includes(newFolder)) {
+        vaultFolders.push(newFolder);
+        res.json({ success: true, folders: vaultFolders });
+    } else {
+        res.status(400).json({ error: 'Invalid or duplicate folder name.' });
+    }
+});
+
+// --- UPLOAD ENDPOINT ---
 app.post('/upload', upload.fields([{ name: 'bookFile', maxCount: 1 }, { name: 'previewFile', maxCount: 1 }]), (req, res) => {
-    
-    // Check if the main file was actually sent
     if (!req.files || !req.files['bookFile']) {
         return res.status(400).json({ error: 'Main file is required.' });
     }
@@ -51,20 +54,17 @@ app.post('/upload', upload.fields([{ name: 'bookFile', maxCount: 1 }, { name: 'p
     const mainFile = req.files['bookFile'][0];
     let previewUrl = null;
 
-    // Check if an optional screenshot was uploaded alongside the main file
     if (req.files['previewFile']) {
         previewUrl = `/uploads/${req.files['previewFile'][0].filename}`;
-    } 
-    // If no screenshot, but the main file IS an image, use it as its own preview
-    else if (mainFile.mimetype.includes('image')) {
+    } else if (mainFile.mimetype.includes('image')) {
         previewUrl = `/uploads/${mainFile.filename}`;
     }
 
-    // Create the database record for this file
     const newAsset = {
         id: Date.now(),
         title: req.body.title,
         desc: req.body.desc,
+        folder: req.body.folder || 'General', 
         fileName: mainFile.originalname,
         fileUrl: `/uploads/${mainFile.filename}`, 
         fileType: mainFile.mimetype,
@@ -75,11 +75,34 @@ app.post('/upload', upload.fields([{ name: 'bookFile', maxCount: 1 }, { name: 'p
     res.json({ success: true, asset: newAsset });
 });
 
-// The API endpoint that sends the list of files to your website's catalog
+// --- FILE DATA ENDPOINTS ---
 app.get('/files', (req, res) => res.json(vaultFiles));
 
-// Start the engine
-// (Updated for Render compatibility)
+app.delete('/delete/:id', (req, res) => {
+    const fileId = parseInt(req.params.id);
+    const fileIndex = vaultFiles.findIndex(f => f.id === fileId);
+
+    if (fileIndex !== -1) {
+        vaultFiles.splice(fileIndex, 1);
+        res.json({ success: true, message: 'File deleted successfully!' });
+    } else {
+        res.status(404).json({ error: 'File not found.' });
+    }
+});
+
+app.put('/edit/:id', (req, res) => {
+    const fileId = parseInt(req.params.id);
+    const fileIndex = vaultFiles.findIndex(f => f.id === fileId);
+
+    if (fileIndex !== -1) {
+        if (req.body.title) vaultFiles[fileIndex].title = req.body.title;
+        if (req.body.desc) vaultFiles[fileIndex].desc = req.body.desc;
+        res.json({ success: true, asset: vaultFiles[fileIndex] });
+    } else {
+        res.status(404).json({ error: 'File not found.' });
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`\n======================================`);
